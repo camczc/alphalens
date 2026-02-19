@@ -1,96 +1,117 @@
 # AlphaLens 📈
 
-An AI-powered stock research assistant with a quantitative edge layer.
+An AI-powered stock research platform combining quantitative signal analysis with Claude-generated analyst briefs.
+
+![Python](https://img.shields.io/badge/Python-3.11-blue) ![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green) ![Streamlit](https://img.shields.io/badge/Streamlit-1.x-red) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Supabase-blue)
+
+## What it does
+
+- **Signal Scorecard** — computes RSI, MACD, Bollinger Bands, moving averages, OBV, and a composite score (-1 to +1) for any tracked ticker
+- **AI Research Briefs** — Claude reads the signal data and writes a structured analyst brief with thesis, risks, and outlook
+- **Backtesting Engine** — simulate 4 trading strategies (Composite, RSI Mean Reversion, Golden Cross, MACD Crossover) with full metrics: Sharpe, Sortino, Calmar, max drawdown, win rate, equity curve
+- **Strategy Comparison** — run all 4 strategies on the same ticker and see which historically performs best, with a leaderboard and combined equity curves
+
+## Stack
+
+- **Backend:** FastAPI + SQLAlchemy + PostgreSQL (Supabase)
+- **Data:** yfinance, pandas, numpy, ta (technical analysis)
+- **AI:** Anthropic Claude API
+- **Frontend:** Streamlit + Plotly
+- **Scheduler:** APScheduler (daily data refresh)
 
 ## Architecture
 
 ```
 alphalens/
 ├── app/
-│   ├── api/          # FastAPI route handlers
-│   ├── core/         # Config, settings, constants
-│   ├── db/           # Database models, migrations, session
-│   ├── models/       # Pydantic schemas (request/response)
-│   ├── services/     # Business logic
-│   │   ├── ingestion.py      # Data pipeline (yfinance + polygon)
-│   │   ├── signals.py        # Quant signal engine
-│   │   ├── backtester.py     # Backtesting engine
-│   │   └── research.py       # LLM research layer
-├── scripts/          # One-off scripts (seed DB, backfill data)
-├── tests/            # Pytest test suite
-├── .env.example
-├── requirements.txt
-└── main.py
+│   ├── api/              # FastAPI route handlers
+│   │   ├── tickers.py    # Ticker management
+│   │   ├── signals.py    # Signal computation endpoints
+│   │   ├── backtest.py   # Backtesting endpoints
+│   │   └── research.py   # AI research brief endpoints
+│   ├── core/             # Config + settings
+│   ├── db/               # SQLAlchemy models + session
+│   ├── models/           # Pydantic request/response schemas
+│   └── services/
+│       ├── ingestion.py  # yfinance data pipeline
+│       ├── signals.py    # Quant signal engine
+│       ├── backtester.py # Strategy backtesting engine
+│       └── research.py   # Claude-powered research layer
+├── frontend/
+│   ├── app.py            # Streamlit entry point
+│   └── views/            # Research, Backtest, Compare pages
+├── scripts/              # CLI tools for seeding and running
+└── tests/                # Pytest test suite
 ```
-
-## Stack
-- **Backend:** Python 3.11, FastAPI, SQLAlchemy, PostgreSQL
-- **Data:** yfinance, polygon.io, pandas, numpy
-- **Quant:** vectorbt, scipy
-- **AI:** OpenAI / Anthropic API + LangChain for RAG
-- **Infra:** Docker, APScheduler for cron jobs
 
 ## Setup
 
+**Prerequisites:** Python 3.11, PostgreSQL (or Supabase free tier)
+
 ```bash
-# 1. Clone and install
+# 1. Clone
+git clone https://github.com/camczc/alphalens.git
+cd alphalens
+
+# 2. Create virtual environment
+python3.11 -m venv venv
+source venv/bin/activate
+
+# 3. Install dependencies
 pip install -r requirements.txt
 
-# 2. Set up environment
-cp .env.example .env
-# Fill in your API keys and DB URL
+# 4. Configure environment
+cp env.example .env
+# Edit .env with your DATABASE_URL and ANTHROPIC_API_KEY
 
-# 3. Initialize the database
+# 5. Initialize database
 python scripts/init_db.py
 
-# 4. Seed historical data for a ticker
-python scripts/seed_data.py --ticker AAPL --years 5
+# 6. Seed price history
+python scripts/seed_data.py --ticker AAPL NVDA MSFT TSLA
 
-# 5. Run the API
-uvicorn main:app --reload
+# 7. Compute signals
+python scripts/run_signals.py --ticker AAPL NVDA MSFT TSLA --store
 ```
+
+## Running
+
+```bash
+# Terminal 1 — API server
+uvicorn main:app --reload
+
+# Terminal 2 — Streamlit dashboard
+python -m streamlit run frontend/app.py
+```
+
+- **Dashboard** → http://localhost:8501
+- **API Docs (Swagger)** → http://localhost:8000/docs
 
 ## API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/analyze/{ticker}` | Full research brief for a ticker |
-| GET | `/signals/{ticker}` | Raw quant signals |
+| GET | `/signals/{ticker}` | Latest signal scorecard |
+| GET | `/analyze/{ticker}` | Claude-generated research brief |
 | POST | `/backtest` | Run a strategy backtest |
+| POST | `/backtest/compare` | Compare all strategies |
 | GET | `/tickers` | List tracked tickers |
-| POST | `/tickers` | Add a ticker to track |
+| POST | `/tickers` | Add a ticker |
 
-## Running the App
+## Strategies
 
-```bash
-# Terminal 1 — start the API
-uvicorn main:app --reload
+| Strategy | Logic | Best for |
+|----------|-------|----------|
+| Composite | Multi-signal aggregate score | General use |
+| RSI Mean Reversion | Buy oversold, sell overbought | Sideways markets |
+| Golden Cross | SMA50 vs SMA200 crossover | Trending markets |
+| MACD Crossover | MACD histogram sign change | Momentum plays |
 
-# Terminal 2 — start the dashboard
-streamlit run frontend/app.py
+## Environment Variables
+
 ```
-
-Then open:
-- **Dashboard** → http://localhost:8501
-- **API Docs (Swagger)** → http://localhost:8000/docs
-
-## Quick Start Demo
-
-```bash
-# Seed some data
-python scripts/seed_data.py --ticker AAPL NVDA MSFT TSLA
-
-# Compute signals
-python scripts/run_signals.py --ticker AAPL NVDA --store
-
-# Run a backtest comparison
-python scripts/run_backtest.py --ticker NVDA --strategy all --start 2020-01-01
+DATABASE_URL=postgresql://...     # PostgreSQL connection string
+ANTHROPIC_API_KEY=sk-ant-...      # Required for AI research briefs
+ENV=development
+LOG_LEVEL=INFO
 ```
-
-## Build Roadmap
-- [x] Step 1: Data ingestion pipeline + DB schema
-- [x] Step 2: Quant signal engine (RSI, MACD, Bollinger, composite score)
-- [x] Step 3: Backtesting engine (Sharpe, Sortino, drawdown, equity curve)
-- [x] Step 4: FastAPI endpoints with Swagger docs
-- [x] Step 5: LLM research layer (Claude-powered analyst briefs)
-- [x] Step 6: Streamlit dashboard (Research, Backtest, Compare pages)
