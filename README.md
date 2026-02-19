@@ -115,3 +115,20 @@ ANTHROPIC_API_KEY=sk-ant-...      # Required for AI research briefs
 ENV=development
 LOG_LEVEL=INFO
 ```
+## Demo
+
+<p align="center">
+  <img src="assets/demo/1.png" width="900">
+</p>
+
+<p align="center">
+  <img src="assets/demo/2.png" width="900">
+</p>
+
+<p align="center">
+  <img src="assets/demo/3.png" width="900">
+</p>
+
+<p align="center">
+  <img src="assets/demo/4.png" width="900">
+</p>
